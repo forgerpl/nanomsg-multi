@@ -1,0 +1,9 @@
+[package]
+name = "nanomsg-multi"
+version = "0.1.0"
+authors = ["Jacek Całusiński <forger@forger.pl>"]
+
+[workspace]
+
+[dependencies]
+nanomsg-multi-server = { path = "nanomsg-multi-server" }

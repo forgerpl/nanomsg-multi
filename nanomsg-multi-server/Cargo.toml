@@ -1,0 +1,12 @@
+[package]
+name = "nanomsg-multi-server"
+version = "0.1.0"
+authors = ["Jacek Całusiński <forger@forger.pl>"]
+
+[dependencies]
+futures = "0.1.18"
+nanomsg-tokio = { git = "ssh://git@github.com/FCG-LLC/nanomsg-tokio.git" }
+nanomsg = { git = "ssh://git@github.com/FCG-LLC/nanomsg-rs.git" }
+tokio-core = "0.1.12"
+log = "0.4.1"
+rand = "0.4.2"
