@@ -10,3 +10,5 @@ macro_rules! CLIENT_SOCKET_URL {
 
 pub(crate) const DEFAULT_SESSION_TIMEOUT: u64 = 30;
 pub(crate) const DEFAULT_GC_INTERVAL: u64 = 60;
+/// Store up to this number of new session requests before denying service
+pub(crate) const INTERNAL_BUFFER_LENGTH: usize = 100;

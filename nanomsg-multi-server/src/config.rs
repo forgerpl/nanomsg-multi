@@ -1,9 +1,9 @@
 use consts::{DEFAULT_GC_INTERVAL, DEFAULT_SESSION_TIMEOUT, MAIN_SOCKET_URL};
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 #[inline]
-fn client_socket(socket_id: usize) -> String {
+pub(crate) fn client_socket(socket_id: usize) -> String {
     CLIENT_SOCKET_URL!(socket_id)
 }
 
@@ -22,9 +22,9 @@ impl From<Duration> for SessionTimeout {
     }
 }
 
-impl Into<Duration> for SessionTimeout {
-    fn into(self) -> Duration {
-        self.0
+impl From<SessionTimeout> for Duration {
+    fn from(source: SessionTimeout) -> Duration {
+        source.0
     }
 }
 
@@ -43,9 +43,9 @@ impl From<Duration> for GcInterval {
     }
 }
 
-impl Into<Duration> for GcInterval {
-    fn into(self) -> Duration {
-        self.0
+impl From<GcInterval> for Duration {
+    fn from(source: GcInterval) -> Duration {
+        source.0
     }
 }
 
