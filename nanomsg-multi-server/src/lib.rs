@@ -275,28 +275,38 @@ impl Stream for PeerConnection {
     type Error = PeerError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        // check killswitch
+        // These two functions can be safely called only from within `poll()`
+        // so it's best to declare them here
 
-        if if let Some(killswitch) = self.killswitch_receiver.as_mut() {
-            match killswitch.poll() {
-                Ok(Async::Ready(..)) | Err(_) => true,
-                Ok(Async::NotReady) => false,
+        #[inline]
+        fn killswitch_activated(pc: &mut PeerConnection) -> bool {
+            if let Some(killswitch) = pc.killswitch_receiver.as_mut() {
+                match killswitch.poll() {
+                    Ok(Async::Ready(..)) | Err(_) => true,
+                    Ok(Async::NotReady) => false,
+                }
+            } else {
+                // this shouldn't ever get called
+                error!("PeerConnection Stream polled after the killswitch has been activated");
+                unreachable!();
             }
-        } else {
-            // this shouldn't ever get called
-            error!("PeerConnection Stream polled after the killswitch has been activated");
-            unreachable!();
-        } {
-            // we should close the connection
+        }
 
+        #[inline]
+        fn gc_timeout_expired(pc: &mut PeerConnection) -> Result<bool, ::std::io::Error> {
+            if let Async::Ready(Some(_)) = pc.gc.poll()? {
+                Ok(pc.idle() > pc.timeout)
+            } else {
+                Ok(false)
+            }
+        }
+
+        if killswitch_activated(self) {
+            // we should close the connection
             Ok(Async::Ready(None))
         }
         // next, poll gc interval
-        else if if let Async::Ready(Some(_)) = self.gc.poll()? {
-            self.idle() > self.timeout
-        } else {
-            false
-        } {
+        else if gc_timeout_expired(self)? {
             // session timeout expired, close the connection
             debug!("Session timeout expired, closing {:?}", self);
 
