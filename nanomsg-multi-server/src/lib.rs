@@ -18,7 +18,7 @@ pub mod config;
 pub mod proto;
 
 use error::{PeerError, ServerError};
-use consts::INTERNAL_BUFFER_LENGTH;
+use consts::{INTERNAL_BUFFER_LENGTH, INTERNAL_PEER_BUFFER_LENGTH};
 use config::{client_socket, GcInterval, MainSocketUrl, SessionTimeout};
 use proto::{deserialize, serialize, ConnId, ControlReply, ControlRequest, PeerReply, PeerRequest};
 
@@ -26,6 +26,7 @@ use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
 use futures::unsync::oneshot::{channel as oneshot, Receiver as OneshotReceiver,
                                Sender as OneshotSender};
 use futures::unsync::mpsc::{channel, Receiver, Sender};
+use futures::sink::Buffer;
 
 use nanomsg_tokio::Socket as NanoSocket;
 use nanomsg::Protocol;
@@ -215,7 +216,7 @@ impl MultiServer {
 
 pub struct PeerConnection {
     last_active: Instant,
-    socket: NanoSocket,
+    socket: Buffer<NanoSocket>,
     killswitch_receiver: Option<OneshotReceiver<()>>,
     gc: Interval,
     timeout: Duration,
@@ -238,6 +239,8 @@ impl PeerConnection {
         let mut socket = NanoSocket::new(Protocol::Pair, handle)?;
 
         socket.bind(url)?;
+
+        let socket = socket.buffer(INTERNAL_PEER_BUFFER_LENGTH);
 
         debug!("Created Pair socket {:?}", url);
 
