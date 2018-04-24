@@ -19,7 +19,7 @@ pub mod proto;
 
 use error::{PeerError, ServerError};
 use consts::{INTERNAL_BUFFER_LENGTH, INTERNAL_PEER_BUFFER_LENGTH};
-use config::{client_socket, GcInterval, MainSocketUrl, SessionTimeout};
+use config::{GcInterval, MainSocketUrl, SessionTimeout};
 use proto::{deserialize, serialize, ConnId, ControlReply, ControlRequest, PeerReply, PeerRequest};
 
 use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
@@ -57,10 +57,12 @@ impl Session {
 }
 
 #[derive(Debug)]
-pub struct MultiServer {
+pub struct MultiServer<CS>
+where CS: Fn(usize) -> String + 'static {
     socket_url: String,
     session_timeout: SessionTimeout,
     gc_interval: GcInterval,
+    client_socket_url: CS,
     sender: Sender<Session>,
     receiver: Option<Receiver<Session>>,
     handle: Handle,
@@ -75,13 +77,14 @@ pub struct MultiServerFutures {
     pub sessions: Receiver<Session>,
 }
 
-impl MultiServer {
+impl<CS: Fn(usize) -> String + 'static> MultiServer<CS> {
     pub fn new<'s, MS, ST, GI>(
         main_socket_url: MS,
         session_timeout: ST,
         gc_interval: GI,
+        client_socket_url: CS,
         handle: Handle,
-    ) -> MultiServer
+    ) -> MultiServer<CS>
     where
         MS: Into<MainSocketUrl<'s>>,
         ST: Into<SessionTimeout>,
@@ -90,6 +93,7 @@ impl MultiServer {
         let main_url = main_socket_url.into();
         let session_timeout = session_timeout.into();
         let gc_interval = gc_interval.into();
+        let client_socket_url = client_socket_url.into();
 
         let (sender, receiver) = channel(INTERNAL_BUFFER_LENGTH);
 
@@ -97,6 +101,7 @@ impl MultiServer {
             socket_url: main_url.as_ref().to_owned(),
             session_timeout,
             gc_interval,
+            client_socket_url,
             sender,
             receiver: Some(receiver),
             handle,
@@ -168,7 +173,7 @@ impl MultiServer {
     fn create_pair_socket(&mut self) -> Result<Session, ServerError> {
         let connid = self.next_connid();
 
-        let client_url = client_socket(connid);
+        let client_url = (self.client_socket_url)(connid);
 
         info!("Creating Pair socket {}", &client_url);
 

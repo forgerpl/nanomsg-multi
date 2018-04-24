@@ -9,7 +9,8 @@ extern crate tokio_core;
 use tokio_core::reactor::Core;
 use nanomsg_multi_server::{MultiServer, MultiServerFutures};
 use nanomsg_multi_server::proto::PeerReply;
-use nanomsg_multi_server::config::{GcInterval, MainSocketUrl, SessionTimeout};
+use nanomsg_multi_server::config::{GcInterval, MainSocketUrl, SessionTimeout,
+    default_client_socket_url};
 
 use futures::{Future, Stream};
 
@@ -28,6 +29,7 @@ fn main() {
         MainSocketUrl::default(),
         SessionTimeout::default(),
         GcInterval::default(),
+        default_client_socket_url,
         handle.clone(),
     );
 
