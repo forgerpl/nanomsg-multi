@@ -3,7 +3,7 @@ use consts::{DEFAULT_GC_INTERVAL, DEFAULT_SESSION_TIMEOUT, MAIN_SOCKET_URL};
 use std::time::Duration;
 
 #[inline]
-pub(crate) fn client_socket(socket_id: usize) -> String {
+pub fn default_client_socket_url(socket_id: usize) -> String {
     CLIENT_SOCKET_URL!(socket_id)
 }
 
