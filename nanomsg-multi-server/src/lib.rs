@@ -402,7 +402,7 @@ impl Stream for PeerConnection {
         }
 
         #[inline]
-        fn gc_timeout_expired(pc: &mut PeerConnection) -> Result<bool, ::std::io::Error> {
+        fn gc_timeout_expired(pc: &mut PeerConnection) -> IoResult<bool> {
             if let Async::Ready(Some(_)) = pc.gc.poll()? {
                 Ok(pc.idle() > pc.timeout)
             } else {
