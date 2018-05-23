@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate log;
+extern crate libc;
 
 extern crate futures;
 extern crate nanomsg;
@@ -16,10 +17,11 @@ mod error;
 mod consts;
 pub mod config;
 pub mod proto;
+mod libc_utils;
 
 use error::{PeerError, ServerError};
 use consts::{INTERNAL_BUFFER_LENGTH, INTERNAL_PEER_BUFFER_LENGTH};
-use config::{GcInterval, MainSocketUrl, SessionTimeout};
+use config::{GcInterval, MainSocketUrl, SessionTimeout, Uid, Gid, FileMode};
 use proto::{deserialize, serialize, ConnId, ControlReply, ControlRequest, PeerReply, PeerRequest};
 
 use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
@@ -39,6 +41,17 @@ use std::time::{Duration, Instant};
 pub type KillswitchSender = OneshotSender<()>;
 pub type KillswitchReceiver = OneshotReceiver<()>;
 
+use std::os::unix::fs::PermissionsExt;
+use std::os::unix::ffi::OsStrExt;
+use std::ffi::CString;
+use std::fs::{metadata, set_permissions};
+use std::path::Path;
+use std::io::{Result as IoResult, Error as IoError, ErrorKind as IoErrorKind};
+
+use libc_utils::cvt_r;
+use libc::chown;
+
+
 #[derive(Debug)]
 pub struct Session {
     pub connid: ConnId,
@@ -56,6 +69,8 @@ impl Session {
     }
 }
 
+// TODO: At this point it definitely warrants a builder
+
 #[derive(Debug)]
 pub struct MultiServer<CS>
 where CS: Fn(usize) -> String + 'static {
@@ -67,6 +82,15 @@ where CS: Fn(usize) -> String + 'static {
     receiver: Option<Receiver<Session>>,
     handle: Handle,
     connections: HashMap<ConnId, OneshotSender<()>>,
+    /// uid of the owner of all sockets
+    /// will try to chown to this
+    owner: Option<Uid>,
+    /// gid of the owner of all sockets
+    /// will try to chown to this
+    group: Option<Gid>,
+    /// file permissions of the sockets
+    /// best to use octal to set, as in `0o644`
+    mode: Option<FileMode>,
 }
 
 pub struct MultiServerFutures {
@@ -106,6 +130,73 @@ impl<CS: Fn(usize) -> String + 'static> MultiServer<CS> {
             receiver: Some(receiver),
             handle,
             connections: HashMap::new(),
+            owner: None,
+            group: None,
+            mode: None
+        }
+    }
+
+    pub fn socket_permissions(&self) -> (Option<Uid>, Option<Gid>, Option<FileMode>) {
+        (
+            self.owner,
+            self.group,
+            self.mode
+        )
+    }
+
+    pub fn set_socket_permissions(&mut self,
+        owner: Option<Uid>,
+        group: Option<Gid>,
+        mode: Option<FileMode>) {
+
+        self.owner = owner;
+        self.group = group;
+        self.mode = mode;
+
+    }
+
+    #[inline]
+    fn update_permissions<P: AsRef<Path>>(&self, file_path: P) -> IoResult<()> {
+        // the libc uid_t and gid_t types are `u32`, but will accept "-1" value
+        // with a "no change" meaning
+        // see man 2 chown
+        // https://stackoverflow.com/questions/21370094/is-the-uid-t-type-signed-or-unsigned
+
+        const CHOWN_NO_CHANGE: u32 = -1_i32 as u32;
+
+        // change ownership
+        let owner = self.owner.unwrap_or(CHOWN_NO_CHANGE);
+        let group = self.group.unwrap_or(CHOWN_NO_CHANGE);
+
+        // this is `std::path::Path` -> `*const std::os::raw::c_char`
+        // requires allocation, as the underlying OsStr is not nul-terminated
+        let cpath = CString::new(file_path
+            .as_ref()
+            .as_os_str()
+            .as_bytes()).map_err(|e| IoError::new(IoErrorKind::InvalidData, e))?;
+
+        cvt_r(move || unsafe { chown(cpath.as_ptr(), owner, group) } )?;
+
+        // change file mode
+        if let Some(mode) = self.mode {
+            let mut permissions = metadata(file_path.as_ref())?.permissions();
+
+            permissions.set_mode(mode);
+
+            set_permissions(file_path.as_ref(), permissions)?;
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    fn get_ipc_socket_path(socket_url: &str) -> Option<&str> {
+        static IPC_MARKER: &str = "ipc://";
+
+        if socket_url.starts_with(&IPC_MARKER) {
+            Some(&socket_url[IPC_MARKER.len()..])
+        } else {
+            None
         }
     }
 
@@ -115,6 +206,11 @@ impl<CS: Fn(usize) -> String + 'static> MultiServer<CS> {
 
         // todo: implement lazy binding and main socket respawn
         socket.bind(self.socket_url.as_ref())?;
+
+        // update ownership & permissions
+        if let Some(socket_path) = Self::get_ipc_socket_path(&self.socket_url) {
+            self.update_permissions(socket_path)?;
+        }
 
         let (writer, reader) = socket.split();
 
@@ -183,6 +279,11 @@ impl<CS: Fn(usize) -> String + 'static> MultiServer<CS> {
             self.gc_interval,
             &self.handle,
         )?;
+
+        // update ownership & permissions
+        if let Some(socket_path) = Self::get_ipc_socket_path(&client_url) {
+            self.update_permissions(socket_path)?;
+        }
 
         // register connection
         self.connections.insert(connid, killswitch);
@@ -301,7 +402,7 @@ impl Stream for PeerConnection {
         }
 
         #[inline]
-        fn gc_timeout_expired(pc: &mut PeerConnection) -> Result<bool, ::std::io::Error> {
+        fn gc_timeout_expired(pc: &mut PeerConnection) -> IoResult<bool> {
             if let Async::Ready(Some(_)) = pc.gc.poll()? {
                 Ok(pc.idle() > pc.timeout)
             } else {

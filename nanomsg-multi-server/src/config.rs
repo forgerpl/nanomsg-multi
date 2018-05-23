@@ -2,6 +2,10 @@ use consts::{DEFAULT_GC_INTERVAL, DEFAULT_SESSION_TIMEOUT, MAIN_SOCKET_URL};
 
 use std::time::Duration;
 
+pub type Uid = ::libc::uid_t;
+pub type Gid = ::libc::gid_t;
+pub type FileMode = u32;
+
 #[inline]
 pub fn default_client_socket_url(socket_id: usize) -> String {
     CLIENT_SOCKET_URL!(socket_id)
