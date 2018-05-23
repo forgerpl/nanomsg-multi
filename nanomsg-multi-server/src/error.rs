@@ -19,6 +19,7 @@ pub enum ServerError {
     Serialization(SerializationError),
     PeerConnection,
     BufferOverflow,
+    IoError(IoError),
     Unknown,
 }
 
@@ -37,6 +38,12 @@ impl From<PeerError> for ServerError {
 impl From<SerializationError> for ServerError {
     fn from(source: SerializationError) -> ServerError {
         ServerError::Serialization(source)
+    }
+}
+
+impl From<IoError> for ServerError {
+    fn from(source: IoError) -> ServerError {
+        ServerError::IoError(source)
     }
 }
 
@@ -91,7 +98,7 @@ impl From<ServerError> for ControlReplyError {
                 ControlReplyError::Socket(nano_error.description().to_owned())
             }
             Serialization(_) | PeerConnection => ControlReplyError::PeerConnection,
-            Unknown | BufferOverflow => ControlReplyError::Internal,
+            Unknown | BufferOverflow | IoError(_) => ControlReplyError::Internal,
         }
     }
 }
