@@ -1,18 +1,10 @@
-extern crate colored_logger;
-extern crate flexi_logger;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate nanomsg;
-extern crate nanomsg_multi_server;
-extern crate nanomsg_tokio;
-extern crate rand;
-extern crate tokio_core;
+use log::*;
 
-use tokio_core::reactor::{Core, Interval};
+use colored_logger::FormatterBuilder;
+use nanomsg::Protocol;
 use nanomsg_multi_server::proto::{deserialize, serialize, ControlReply, ControlRequest};
 use nanomsg_tokio::Socket as NanoSocket;
-use nanomsg::Protocol;
+use tokio_core::reactor::{Core, Interval};
 
 use std::time::Duration;
 
@@ -21,8 +13,9 @@ use futures::{Future, Sink, Stream};
 const MAIN_SOCKET_URL: &str = "ipc:///tmp/nanoserver-main.ipc";
 
 fn main() {
+    let formatter = FormatterBuilder::default().build();
     flexi_logger::Logger::with_env()
-        .format(colored_logger::formatter)
+        .format(formatter)
         .start()
         .expect("Logger initialization failed");
 

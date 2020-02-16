@@ -16,22 +16,25 @@ mod error;
 #[macro_use]
 mod consts;
 pub mod config;
-pub mod proto;
 mod libc_utils;
+pub mod proto;
 
-use error::{PeerError, ServerError};
-use consts::{INTERNAL_BUFFER_LENGTH, INTERNAL_PEER_BUFFER_LENGTH};
-use config::{GcInterval, MainSocketUrl, SessionTimeout, Uid, Gid, FileMode};
-use proto::{deserialize, serialize, ConnId, ControlReply, ControlRequest, PeerReply, PeerRequest};
+use crate::config::{FileMode, GcInterval, Gid, MainSocketUrl, SessionTimeout, Uid};
+use crate::consts::{INTERNAL_BUFFER_LENGTH, INTERNAL_PEER_BUFFER_LENGTH};
+use crate::error::{PeerError, ServerError};
+use crate::proto::{
+    deserialize, serialize, ConnId, ControlReply, ControlRequest, PeerReply, PeerRequest,
+};
 
-use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
-use futures::unsync::oneshot::{channel as oneshot, Receiver as OneshotReceiver,
-                               Sender as OneshotSender};
-use futures::unsync::mpsc::{channel, Receiver, Sender};
 use futures::sink::Buffer;
+use futures::unsync::mpsc::{channel, Receiver, Sender};
+use futures::unsync::oneshot::{
+    channel as oneshot, Receiver as OneshotReceiver, Sender as OneshotSender,
+};
+use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
 
-use nanomsg_tokio::Socket as NanoSocket;
 use nanomsg::Protocol;
+use nanomsg_tokio::Socket as NanoSocket;
 
 use tokio_core::reactor::{Handle, Interval};
 
@@ -41,16 +44,15 @@ use std::time::{Duration, Instant};
 pub type KillswitchSender = OneshotSender<()>;
 pub type KillswitchReceiver = OneshotReceiver<()>;
 
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::ffi::OsStrExt;
 use std::ffi::CString;
 use std::fs::{metadata, set_permissions};
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::io::{Result as IoResult, Error as IoError, ErrorKind as IoErrorKind};
 
-use libc_utils::cvt_r;
+use crate::libc_utils::cvt_r;
 use libc::chown;
-
 
 #[derive(Debug)]
 pub struct Session {
@@ -73,7 +75,9 @@ impl Session {
 
 #[derive(Debug)]
 pub struct MultiServer<CS>
-where CS: Fn(usize) -> String + 'static {
+where
+    CS: Fn(usize) -> String + 'static,
+{
     socket_url: String,
     session_timeout: SessionTimeout,
     gc_interval: GcInterval,
@@ -96,7 +100,7 @@ where CS: Fn(usize) -> String + 'static {
 pub struct MultiServerFutures {
     /// main server socket handler future
     /// this should be run on the io loop
-    pub server: Box<Future<Item = (), Error = ServerError>>,
+    pub server: Box<dyn Future<Item = (), Error = ServerError>>,
     /// a stream producing a `Session` for every incoming client session
     pub sessions: Receiver<Session>,
 }
@@ -132,27 +136,23 @@ impl<CS: Fn(usize) -> String + 'static> MultiServer<CS> {
             connections: HashMap::new(),
             owner: None,
             group: None,
-            mode: None
+            mode: None,
         }
     }
 
     pub fn socket_permissions(&self) -> (Option<Uid>, Option<Gid>, Option<FileMode>) {
-        (
-            self.owner,
-            self.group,
-            self.mode
-        )
+        (self.owner, self.group, self.mode)
     }
 
-    pub fn set_socket_permissions(&mut self,
+    pub fn set_socket_permissions(
+        &mut self,
         owner: Option<Uid>,
         group: Option<Gid>,
-        mode: Option<FileMode>) {
-
+        mode: Option<FileMode>,
+    ) {
         self.owner = owner;
         self.group = group;
         self.mode = mode;
-
     }
 
     #[inline]
@@ -170,12 +170,10 @@ impl<CS: Fn(usize) -> String + 'static> MultiServer<CS> {
 
         // this is `std::path::Path` -> `*const std::os::raw::c_char`
         // requires allocation, as the underlying OsStr is not nul-terminated
-        let cpath = CString::new(file_path
-            .as_ref()
-            .as_os_str()
-            .as_bytes()).map_err(|e| IoError::new(IoErrorKind::InvalidData, e))?;
+        let cpath = CString::new(file_path.as_ref().as_os_str().as_bytes())
+            .map_err(|e| IoError::new(IoErrorKind::InvalidData, e))?;
 
-        cvt_r(move || unsafe { chown(cpath.as_ptr(), owner, group) } )?;
+        cvt_r(move || unsafe { chown(cpath.as_ptr(), owner, group) })?;
 
         // change file mode
         if let Some(mode) = self.mode {
@@ -430,7 +428,7 @@ impl Stream for PeerConnection {
                     // update keepalive information
                     self.refresh();
 
-                    use PeerRequest::*;
+                    use crate::PeerRequest::*;
 
                     match message {
                         Request(..) | Abort(_) | KeepAlive => Ok(Async::Ready(Some(message))),

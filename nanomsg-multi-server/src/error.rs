@@ -1,5 +1,5 @@
-use nanomsg::result::Error as NanoError;
 use bincode::ErrorKind as BincodeError;
+use nanomsg::result::Error as NanoError;
 use std::error::Error;
 use std::io::Error as IoError;
 
@@ -91,7 +91,7 @@ pub enum ControlReplyError {
 
 impl From<ServerError> for ControlReplyError {
     fn from(source: ServerError) -> ControlReplyError {
-        use ServerError::*;
+        use crate::ServerError::*;
 
         match source {
             SocketError(nano_error) => {
@@ -116,7 +116,7 @@ pub enum PeerReplyError {
 
 impl From<PeerError> for PeerReplyError {
     fn from(source: PeerError) -> PeerReplyError {
-        use PeerError::*;
+        use crate::PeerError::*;
 
         match source {
             Unknown => PeerReplyError::Unknown,

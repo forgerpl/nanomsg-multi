@@ -2,6 +2,7 @@
 name = "nanomsg-multi"
 version = "0.1.0"
 authors = ["Jacek Całusiński <forger@forger.pl>"]
+edition = "2018"
 
 [workspace]
 

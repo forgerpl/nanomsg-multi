@@ -1,22 +1,19 @@
-extern crate colored_logger;
-extern crate flexi_logger;
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate nanomsg_multi_server;
-extern crate tokio_core;
+use log::*;
 
-use tokio_core::reactor::Core;
-use nanomsg_multi_server::{MultiServer, MultiServerFutures};
+use colored_logger::FormatterBuilder;
+use nanomsg_multi_server::config::{
+    default_client_socket_url, GcInterval, MainSocketUrl, SessionTimeout,
+};
 use nanomsg_multi_server::proto::PeerReply;
-use nanomsg_multi_server::config::{GcInterval, MainSocketUrl, SessionTimeout,
-    default_client_socket_url};
+use nanomsg_multi_server::{MultiServer, MultiServerFutures};
+use tokio_core::reactor::Core;
 
 use futures::{Future, Stream};
 
 fn main() {
+    let formatter = FormatterBuilder::default().build();
     flexi_logger::Logger::with_env()
-        .format(colored_logger::formatter)
+        .format(formatter)
         .start()
         .expect("Logger initialization failed");
 

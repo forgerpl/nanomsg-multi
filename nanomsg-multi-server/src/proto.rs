@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use error::{ControlReplyError, PeerError, PeerReplyError, SerializationError};
+pub use crate::error::{ControlReplyError, PeerError, PeerReplyError, SerializationError};
 
 pub fn serialize<T>(value: &T) -> Result<Vec<u8>, SerializationError>
 where
