@@ -7,11 +7,11 @@ authors = ["Jacek Całusiński <forger@forger.pl>"]
 
 [dependencies]
 nanomsg-multi-server = { path = "nanomsg-multi-server" }
-colored_logger = { git = "ssh://git@gitlab.cs.int/rust/colored-logger.git" }
-flexi_logger = "0.6.13"
-log = "0.4.1"
-futures = "0.1.18"
-tokio-core = "0.1.12"
-nanomsg = { git = "ssh://git@gitlab.cs.int/rust/nanomsg-rs.git" }
-nanomsg-tokio = { git = "ssh://git@gitlab.cs.int/rust/nanomsg-tokio.git" }
-rand = "0.4.2"
+colored_logger = { git = "https://github.com/forgerpl/colored_logger.git" }
+flexi_logger = "0.14.8"
+log = "0.4.8"
+futures = "^0.1.29"
+tokio-core = "0.1.17"
+nanomsg-tokio = { git = "https://github.com/forgerpl/nanomsg-tokio.git" }
+rand = "0.7.3"
+nanomsg = "0.7.2"

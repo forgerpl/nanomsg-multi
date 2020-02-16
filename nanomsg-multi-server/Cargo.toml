@@ -4,12 +4,12 @@ version = "0.1.0"
 authors = ["Jacek Całusiński <forger@forger.pl>"]
 
 [dependencies]
-futures = "0.1.18"
-nanomsg-tokio = { git = "ssh://git@gitlab.cs.int/rust/nanomsg-tokio.git" }
-nanomsg = { git = "ssh://git@gitlab.cs.int/rust/nanomsg-rs.git" }
+futures = "^0.1.29"
+nanomsg-tokio = { git = "https://github.com/forgerpl/nanomsg-tokio.git" }
 tokio-core = "0.1.12"
 log = "0.4.1"
 serde = "1.0.27"
 bincode = "0.9.2"
 serde_derive = "1.0.27"
 libc = "0.2.41"
+nanomsg = "0.7.2"
